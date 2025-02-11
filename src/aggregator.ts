@@ -10,6 +10,7 @@ export interface CsvEntry {
 
 export interface AggregatedActivity {
   title: string;
+  app: string;
   durationSec: number;
 }
 
@@ -39,7 +40,7 @@ export function parseCsv(csvText: string): CsvEntry[] {
       const value2 = parts.length > 4 ? Number(parts[4].trim()) : NaN;
       entries.push({ timestamp, appName, title, value1, value2 });
     } catch (err) {
-      continue;
+      console.error('Failed to parse CSV line:', line, err);
     }
   }
   entries.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
@@ -57,7 +58,7 @@ export function aggregateToBlocks(entries: CsvEntry[], ignoreIdleTimeUpToSec: nu
   const blocks: AggregatedBlock[] = [];
   let blockStart = entries[0].timestamp;
   let blockEnd = entries[0].timestamp;
-  let activityMap: Record<string, number> = {};
+  let activityMap: Record<string, {appName:string, title: string, duration: number }> = {}
 
   for (let i = 0; i < entries.length - 1; i++) {
     const current = entries[i];
@@ -65,17 +66,22 @@ export function aggregateToBlocks(entries: CsvEntry[], ignoreIdleTimeUpToSec: nu
     const gapSec = (next.timestamp.getTime() - current.timestamp.getTime()) / 1000;
     if (gapSec <= ignoreIdleTimeUpToSec) {
       // Accumulate duration for the current activity.
-      activityMap[current.title] = (activityMap[current.title] || 0) + gapSec;
+      const key = `${current.appName}::${current.title}`
+      activityMap[key] = {appName: current.appName, title: current.title, duration: (activityMap[key]?.duration??0)+gapSec};
       blockEnd = next.timestamp;
     } else {
       // End the current block.
-      const totalDuration = Object.values(activityMap).reduce((sum, d) => sum + d, 0);
+      const totalDuration = Object.values(activityMap).reduce((sum, d) => sum + d.duration, 0);
       blocks.push({
         from: blockStart,
         to: blockEnd,
         totalDurationSec: totalDuration,
-        activities: Object.entries(activityMap).map(([title, durationSec]) => ({ title, durationSec }))
-      });
+        activities: Object.values(activityMap).map(({ appName, title, duration }) => ({
+          title,
+          app: appName,
+          durationSec: duration,
+        })),
+      })
       // Start a new block.
       blockStart = next.timestamp;
       blockEnd = next.timestamp;
@@ -83,12 +89,16 @@ export function aggregateToBlocks(entries: CsvEntry[], ignoreIdleTimeUpToSec: nu
     }
   }
   // Add the final block.
-  const totalDuration = Object.values(activityMap).reduce((sum, d) => sum + d, 0);
+  const totalDuration = Object.values(activityMap).reduce((sum, d) => sum + d.duration, 0);
   blocks.push({
     from: blockStart,
     to: blockEnd,
     totalDurationSec: totalDuration,
-    activities: Object.entries(activityMap).map(([title, durationSec]) => ({ title, durationSec }))
+    activities: Object.values(activityMap).map(({ appName, title, duration }) => ({
+      title,
+      app: appName,
+      durationSec: duration,
+    })).sort((a, b) => b.durationSec - a.durationSec),
   });
 
   return blocks;

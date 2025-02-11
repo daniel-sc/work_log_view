@@ -41,8 +41,7 @@ export default defineComponent({
     const formatDuration = (sec: number) => {
       const h = Math.floor(sec / 3600);
       const m = Math.floor((sec % 3600) / 60);
-      const s = Math.floor(sec % 60);
-      return `${h}h ${m}m ${s}s`;
+      return `${h}h ${m}m`;
     };
 
     // Flatten blocks from all days in the week into a single array.
@@ -59,12 +58,12 @@ export default defineComponent({
           labels.push(`${formatDate(day.date)} ${label}`);
           // Sort activities in descending order.
           const sorted = [...block.activities].sort((a, b) => b.durationSec - a.durationSec);
-          const act1 = sorted[0] ? sorted[0] : { title: '', durationSec: 0 };
-          const act2 = sorted[1] ? sorted[1] : { title: '', durationSec: 0 };
+          const act1 = sorted[0] ? sorted[0] : { title: '', app: '', durationSec: 0 };
+          const act2 = sorted[1] ? sorted[1] : { title: '', app: '', durationSec: 0 };
           dataset1.push(act1.durationSec);
           dataset2.push(act2.durationSec);
-          dataset1Labels.push(act1.title);
-          dataset2Labels.push(act2.title);
+          dataset1Labels.push(`${act1.app}(${act1.title})`);
+          dataset2Labels.push(`${act2.app}(${act2.title})`);
         });
       });
       return { labels, dataset1, dataset2, dataset1Labels, dataset2Labels };
@@ -105,7 +104,7 @@ export default defineComponent({
                   const index = context.dataIndex;
                   const duration = context.parsed.x;
                   const activityLabel = datasetIndex === 0 ? dataset1Labels[index] : dataset2Labels[index];
-                  return `${activityLabel}: ${duration}s`;
+                  return `${activityLabel}: ${formatDuration(duration)}`;
                 }
               }
             }
@@ -138,6 +137,7 @@ export default defineComponent({
     return { chartCanvas, formatDate, formatDuration };
   }
 });
+
 </script>
 
 <style scoped>
