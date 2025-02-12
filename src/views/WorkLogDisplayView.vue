@@ -22,13 +22,13 @@
     </div>
     <div v-if="selectedWeek" class="timetable">
       <h2>TimeTable for Week of {{ formatDate(selectedWeek.weekStart) }}</h2>
-      <time-table :weekData="selectedWeek"></time-table>
+      <time-table-chart :data="timeTableChartData"></time-table-chart>
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, ref, watch } from 'vue'
+import { computed, defineComponent, onMounted, ref, watch } from 'vue'
 import {
   type AggregatedBlock,
   aggregateToBlocks,
@@ -37,11 +37,11 @@ import {
   parseCsv,
   type WeekData,
 } from '../aggregator'
-import TimeTable from '../components/TimeTable.vue'
+import TimeTableChart from '@/components/TimeTableChart.vue'
 
 export default defineComponent({
   name: 'WorkLogDisplayView',
-  components: { TimeTable: TimeTable },
+  components: { TimeTableChart },
   setup() {
     // Configuration: idle threshold (in seconds).
     const idleThreshold = ref(300)
@@ -151,20 +151,47 @@ export default defineComponent({
       },
       { immediate: true },
     )
+    const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    const timeTableChartData = computed(() => {
+      if (!selectedWeek.value) {
+        return []
+      }
+      return selectedWeek.value.days.flatMap((d) =>
+        d.blocks.map((b) => ({
+          day: weekdays[(d.date.getDay() + 6) % 7],
+          label: 'work',
+          start: getTimeFractional(b.from),
+          end: getTimeFractional(b.to),
+        })))
+    })
 
     const formatDate = (date: Date) => {
       return date.toLocaleDateString()
     }
 
-    return { idleThreshold, handleDrop, weeks, selectedWeek, selectedWeekStart, formatDate }
+    return {
+      idleThreshold,
+      handleDrop,
+      weeks,
+      selectedWeek,
+      selectedWeekStart,
+      formatDate,
+      timeTableChartData,
+    }
   },
 })
+
+function getTimeFractional(date: Date): number {
+  return date.getHours() + date.getMinutes() / 60
+}
 </script>
 
 <style scoped>
 .app-container {
   font-family: Arial, sans-serif;
   max-width: 1000px;
+  width: 80vw;
   margin: 2rem auto;
   padding: 1rem;
 }
