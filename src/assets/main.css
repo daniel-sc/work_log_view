@@ -31,3 +31,7 @@ a,
     padding: 0 2rem;
   }
 }
+
+.total-time-label {
+  fill: var(--color-text);
+}
