@@ -16,37 +16,31 @@ import * as d3 from 'd3'
  *   { day: "Wednesday", start: 15, end: 17,  label: "Project Work" }
  * ]
  */
+interface TimetableEntry {
+  day: string
+  start: number
+  end: number
+  label: string
+}
 
-const props = defineProps({
+const props = withDefaults(defineProps<{
+  data: TimetableEntry[]
+  width?: number
+  height?: number
+  minHour?: number
+  maxHour?: number
+  days?: string[]
+}>(), {
   /* Timetable data: array of objects with day, start, end, label, etc. */
-  data: {
-    type: Array,
-    default: () => [],
-  },
+  data: () => [],
   /* Overall width and height of the SVG (in px). */
-  width: {
-    type: Number,
-    // default width is 80vw in pixel:
-    default: Math.min(window.innerWidth * 0.8, 950),
-  },
-  height: {
-    type: Number,
-    default: 500,
-  },
+  width: Math.min(window.innerWidth * 0.8, 950),
+  height: 500,
   /* Minimum and maximum hour to show on the y-axis. Adjust as desired. */
-  minHour: {
-    type: Number,
-    default: 7,
-  },
-  maxHour: {
-    type: Number,
-    default: 18,
-  },
+  minHour: 7,
+  maxHour: 18,
   /* Which days to show on the x-axis. */
-  days: {
-    type: Array,
-    default: () => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-  },
+  days: () => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
 })
 
 const chartContainer = ref(null)
@@ -106,8 +100,8 @@ function drawChart() {
   g.append('g').attr('transform', `translate(0, ${innerHeight})`).call(d3.axisBottom(xScale))
 
   //    b) Y-axis, with a custom formatter for hours
-  const formatHour = (d) => {
-    const hour = Math.floor(d)
+  const formatHour = (d: number | d3.NumberValue) => {
+    const hour = Math.floor(typeof d === 'number' ? d : d.valueOf())
     return hour + ':00'
   }
   g.append('g').call(d3.axisLeft(yScale).tickFormat(formatHour))
@@ -134,17 +128,17 @@ function drawChart() {
       .filter((d) => d.day === day)
       .reduce((sum, d) => sum + (d.end - d.start), 0)
     return { day, total }
-  });
+  })
   // 8. Add labels for total time.
   g.selectAll('.total-time-label')
     .data(totalTimePerDay)
     .enter()
     .append('text')
     .attr('class', 'total-time-label')
-    .attr('x', (d) => xScale(d.day) + xScale.bandwidth() / 2)
+    .attr('x', (d) => xScale(d.day)! + xScale.bandwidth() / 2)
     .attr('y', -5) // Position above the top of the chart
     .attr('text-anchor', 'middle')
-    .text(d => `Total: ${factionalTimeToString(d.total)}`)
+    .text((d) => `Total: ${factionalTimeToString(d.total)}`)
 }
 
 function factionalTimeToString(time: number): string {
