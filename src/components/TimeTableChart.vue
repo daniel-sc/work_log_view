@@ -138,7 +138,42 @@ function drawChart() {
     .attr('x', (d) => xScale(d.day)! + xScale.bandwidth() / 2)
     .attr('y', -5) // Position above the top of the chart
     .attr('text-anchor', 'middle')
-    .text((d) => `Total: ${factionalTimeToString(d.total)}`)
+    .text((d) => `Total: ${factionalTimeToString(d.total)}`);
+
+  // 7. Calculate total time and start/end times for each day.
+  const dayData = props.days.map((day) => {
+    const dayEntries = props.data.filter((d) => d.day === day)
+    const start = Math.min(...dayEntries.map((d) => d.start))
+    const end = Math.max(...dayEntries.map((d) => d.end))
+    return { day, start, end, blockCount: dayEntries.length }
+  })
+
+
+  // 8. Draw braces and labels for total time.
+  dayData.forEach((d) => {
+    if (d.start < d.end && d.blockCount > 1) {
+      // Draw brace
+      const x = xScale(d.day)! + xScale.bandwidth() + 5
+      const y1 = yScale(d.start)
+      const y2 = yScale(d.end)
+      const midY = (y1 + y2) / 2
+      const bracePath = `M${x},${y1} Q${x + 10},${midY} ${x},${y2}`
+
+      g.append('path')
+        .attr('d', bracePath)
+        .attr('stroke', 'black')
+        .attr('stroke-width', 2)
+        .attr('fill', 'none')
+
+      g.append('text')
+        .attr('x', x + 15)
+        .attr('y', midY)
+        .attr('text-anchor', 'start')
+        .attr('alignment-baseline', 'middle')
+        .attr('transform', `rotate(90, ${x + 15}, ${midY})`) // Rotate text by -90 degrees
+        .text(`${factionalTimeToString(d.end - d.start)}`)
+    }
+  })
 }
 
 function factionalTimeToString(time: number): string {
