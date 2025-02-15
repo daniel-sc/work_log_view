@@ -110,9 +110,6 @@ export function aggregateToBlocks(
       .sort((a, b) => b.durationSec - a.durationSec),
   });
 
-  console.log('idle time:', ignoreIdleTimeUpToSec);
-  console.log('blocks:', blocks);
-
   return blocks
 }
 

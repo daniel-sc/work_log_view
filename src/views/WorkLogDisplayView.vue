@@ -43,10 +43,23 @@ import TimeTableChart from '@/components/TimeTableChart.vue'
 const idleThreshold = ref(300)
 // Raw CSV text and parsed entries.
 const rawCsvText = ref<string>('')
-const parsedEntries = ref<CsvEntry[]>([])
+const parsedEntries = computed<CsvEntry[]>(() => parseCsv(rawCsvText.value))
 // Aggregated blocks and weeks.
-const blocks = ref<AggregatedBlock[]>([])
-const weeks = ref<WeekData[]>([])
+const blocks = computed<AggregatedBlock[]>(() =>
+  aggregateToBlocks(parsedEntries.value, idleThreshold.value),
+)
+const weeks = computed<WeekData[]>(() => groupBlocksByWeek(blocks.value))
+
+watch(weeks, (newWeeks) => {
+  // Automatically select the latest week.
+  if (newWeeks.length > 0) {
+    const latestWeek = newWeeks.reduce((prev, curr) =>
+      curr.weekStart > prev.weekStart ? curr : prev,
+    )
+    selectedWeekStart.value = latestWeek.weekStart.toISOString()
+  }
+})
+
 // The selected week, identified by its Monday (ISO string).
 const selectedWeekStart = ref<string>('')
 
@@ -63,29 +76,6 @@ onMounted(() => {
       console.error('Failed to parse config from localStorage', e)
     }
   }
-  const savedData = localStorage.getItem('worklogData')
-  if (savedData) {
-    try {
-      const data = JSON.parse(savedData, (key, value) =>
-        typeof value === 'string' && value.match(/^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d[.:+\dZ]+$/)
-          ? new Date(value)
-          : value,
-      )
-      if (data.blocks && data.weeks) {
-        blocks.value = data.blocks
-        weeks.value = data.weeks
-        // Automatically select the latest week.
-        if (data.weeks.length > 0) {
-          const latestWeek = weeks.value.reduce((prev, curr) =>
-            curr.weekStart > prev.weekStart ? curr : prev,
-          )
-          selectedWeekStart.value = latestWeek.weekStart.toISOString()
-        }
-      }
-    } catch (e) {
-      console.error('Failed to parse data from localStorage', e)
-    }
-  }
 })
 
 // When idleThreshold changes, persist it and update aggregation if data exists.
@@ -95,26 +85,7 @@ watch(idleThreshold, (newVal) => {
     'worklogConfig',
     JSON.stringify(config, (key, value) => (value instanceof Date ? value.toISOString() : value)),
   )
-  if (parsedEntries.value.length > 0) {
-    updateAggregation()
-  }
 })
-
-// Recompute blocks and weeks from parsed CSV entries.
-const updateAggregation = () => {
-  const newBlocks = aggregateToBlocks(parsedEntries.value, idleThreshold.value)
-  blocks.value = newBlocks
-  const newWeeks = groupBlocksByWeek(newBlocks)
-  weeks.value = newWeeks
-  // Automatically select the latest week.
-  if (newWeeks.length > 0) {
-    const latestWeek = newWeeks.reduce((prev, curr) =>
-      curr.weekStart > prev.weekStart ? curr : prev,
-    )
-    selectedWeekStart.value = latestWeek.weekStart.toISOString()
-  }
-  localStorage.setItem('worklogData', JSON.stringify({ blocks: newBlocks, weeks: newWeeks }))
-}
 
 // Handle CSV file drop.
 const handleDrop = (event: DragEvent) => {
@@ -126,8 +97,6 @@ const handleDrop = (event: DragEvent) => {
       const text = e.target?.result
       if (typeof text === 'string') {
         rawCsvText.value = text
-        parsedEntries.value = parseCsv(text)
-        updateAggregation()
       }
     }
     reader.readAsText(file)
