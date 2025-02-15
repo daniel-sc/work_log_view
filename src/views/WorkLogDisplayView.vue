@@ -50,6 +50,12 @@ const blocks = computed<AggregatedBlock[]>(() =>
 )
 const weeks = computed<WeekData[]>(() => groupBlocksByWeek(blocks.value))
 
+watch(rawCsvText, () => {
+  caches.open('worklog').then((cache) => {
+    cache.put('worklog.csv', new Response(rawCsvText.value))
+  })
+});
+
 watch(weeks, (newWeeks) => {
   // Automatically select the latest week.
   if (newWeeks.length > 0) {
@@ -64,7 +70,7 @@ watch(weeks, (newWeeks) => {
 const selectedWeekStart = ref<string>('')
 
 // Read configuration from localStorage on mount.
-onMounted(() => {
+onMounted(async () => {
   const savedConfig = localStorage.getItem('worklogConfig')
   if (savedConfig) {
     try {
@@ -75,6 +81,12 @@ onMounted(() => {
     } catch (e) {
       console.error('Failed to parse config from localStorage', e)
     }
+  }
+
+  const cache = await caches.open('worklog')
+  const cachedResponse = await cache.match('worklog.csv');
+  if (cachedResponse) {
+    rawCsvText.value = await cachedResponse.text()
   }
 })
 
