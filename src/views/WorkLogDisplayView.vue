@@ -1,12 +1,27 @@
 <template>
+  <div class="header-banner">
+    <div class="header-content">
+      <h1>Work Log Analyzer</h1>
+      <p class="purpose-text">
+        Upload your CSV work log file to visualize and analyze your weekly work patterns. Adjust the idle threshold to filter out breaks.
+      </p>
+      <p>
+        Work log files are assumed to be created by <a href="https://github.com/daniel-sc/work_log" target="_blank" rel="noopener noreferrer">work_log</a>
+        - this viewer can be found on <a href="https://github.com/daniel-sc/work_log_view" target="_blank" rel="noopener noreferrer">GitHub</a>.
+      </p>
+    </div>
+  </div>
   <div class="app-container">
-    <h1>Work Log Analyzer</h1>
     <div class="config">
       <label for="idleThreshold">Ignore idle time up to (sec):</label>
       <input id="idleThreshold" type="number" v-model.number="idleThreshold" min="0" />
     </div>
     <div class="drop-area" @dragover.prevent @dragenter.prevent @drop="handleDrop">
       <p>Drag and drop your CSV file here</p>
+    </div>
+    <!-- Full-screen overlay drop zone when dragging -->
+    <div v-if="isDragging" class="full-drop-zone" @dragover.prevent @dragenter.prevent @drop="handleDrop">
+      <p>Drop your CSV file anywhere</p>
     </div>
     <div v-if="weeks.length > 0" class="week-select">
       <label for="weekSelect">Select Week:</label>
@@ -28,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch, onUnmounted } from 'vue'
 import {
   type AggregatedBlock,
   aggregateToBlocks,
@@ -54,7 +69,7 @@ watch(rawCsvText, () => {
   caches.open('worklog').then((cache) => {
     cache.put('worklog.csv', new Response(rawCsvText.value))
   })
-});
+})
 
 watch(weeks, (newWeeks) => {
   // Automatically select the latest week.
@@ -69,8 +84,49 @@ watch(weeks, (newWeeks) => {
 // The selected week, identified by its Monday (ISO string).
 const selectedWeekStart = ref<string>('')
 
-// Read configuration from localStorage on mount.
+// Drag state management for full-screen drop zone.
+const isDragging = ref(false)
+const dragCounter = ref(0)
+
+function handleDragEnter(event: DragEvent) {
+  event.preventDefault()
+  dragCounter.value++
+  isDragging.value = true
+}
+
+function handleDragLeave(event: DragEvent) {
+  event.preventDefault()
+  dragCounter.value--
+  if (dragCounter.value <= 0) {
+    isDragging.value = false
+    dragCounter.value = 0
+  }
+}
+
+function handleDragOver(event: DragEvent) {
+  event.preventDefault()
+}
+
+// Handle CSV file drop.
+const handleDrop = (event: DragEvent) => {
+  event.preventDefault()
+  isDragging.value = false
+  dragCounter.value = 0
+  if (event.dataTransfer && event.dataTransfer.files.length) {
+    const file = event.dataTransfer.files[0]
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = e.target?.result
+      if (typeof text === 'string') {
+        rawCsvText.value = text
+      }
+    }
+    reader.readAsText(file)
+  }
+}
+
 onMounted(async () => {
+  // Load configuration.
   const savedConfig = localStorage.getItem('worklogConfig')
   if (savedConfig) {
     try {
@@ -84,36 +140,35 @@ onMounted(async () => {
   }
 
   const cache = await caches.open('worklog')
-  const cachedResponse = await cache.match('worklog.csv');
+  const cachedResponse = await cache.match('worklog.csv')
   if (cachedResponse) {
     rawCsvText.value = await cachedResponse.text()
   }
+
+  // Add window drag event listeners for full-screen drop zone.
+  window.addEventListener('dragenter', handleDragEnter)
+  window.addEventListener('dragleave', handleDragLeave)
+  window.addEventListener('dragover', handleDragOver)
+  window.addEventListener('drop', handleDrop)
 })
 
-// When idleThreshold changes, persist it and update aggregation if data exists.
+onUnmounted(() => {
+  window.removeEventListener('dragenter', handleDragEnter)
+  window.removeEventListener('dragleave', handleDragLeave)
+  window.removeEventListener('dragover', handleDragOver)
+  window.removeEventListener('drop', handleDrop)
+})
+
+// Persist idleThreshold changes.
 watch(idleThreshold, (newVal) => {
   const config = { idleThreshold: newVal }
   localStorage.setItem(
     'worklogConfig',
-    JSON.stringify(config, (key, value) => (value instanceof Date ? value.toISOString() : value)),
+    JSON.stringify(config, (key, value) =>
+      value instanceof Date ? value.toISOString() : value,
+    ),
   )
 })
-
-// Handle CSV file drop.
-const handleDrop = (event: DragEvent) => {
-  event.preventDefault()
-  if (event.dataTransfer && event.dataTransfer.files.length) {
-    const file = event.dataTransfer.files[0]
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const text = e.target?.result
-      if (typeof text === 'string') {
-        rawCsvText.value = text
-      }
-    }
-    reader.readAsText(file)
-  }
-}
 
 // Compute the selected week from weeks and the select value.
 const selectedWeek = ref<WeekData | null>(null)
@@ -151,43 +206,94 @@ function getTimeFractional(date: Date): number {
 </script>
 
 <style scoped>
+
+.header-banner {
+  width: 100%;
+  background: linear-gradient(90deg, var(--sunglow), var(--bright-pink-crayola));
+  padding: 2rem 0;
+  margin-bottom: 2rem;
+}
+
+.header-content {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  text-align: center;
+  color: var(--white);
+}
+
 .app-container {
-  font-family: Arial, sans-serif;
   max-width: 1000px;
   width: 80vw;
-  margin: 2rem auto;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: var(--white);
+  border-radius: 0;
+  color: var(--midnight-green);
+  position: relative;
+}
+
+/* Section backgrounds for flat, edgy design */
+.config,
+.week-select,
+.timetable {
+  background-color: var(--grey-light);
   padding: 1rem;
+  margin-bottom: 1.5rem;
 }
 
-h1 {
-  text-align: center;
-  margin-bottom: 1rem;
+.config label,
+.week-select label {
+  margin-right: 0.5rem;
+  font-weight: bold;
+  color: var(--blue-ncs);
 }
 
-.config {
-  margin-bottom: 1rem;
-  text-align: center;
+.config input {
+  padding: 0.5rem;
+  border: 1px solid var(--grey);
+  border-radius: 0;
+  width: 100px;
+}
+
+select {
+  padding: 0.5rem;
+  border: 1px solid var(--grey);
+  border-radius: 0;
 }
 
 .drop-area {
-  border: 2px dashed #ccc;
-  border-radius: 8px;
-  padding: 2rem;
+  border: 2px dashed var(--grey);
+  border-radius: 0;
+  padding: 3rem;
   text-align: center;
-  color: #666;
-  transition: border-color 0.3s;
+  color: var(--grey-dark);
+  transition: border-color 0.3s, background-color 0.3s;
+  background-color: var(--grey-light);
+  margin-bottom: 1.5rem;
 }
 
 .drop-area:hover {
-  border-color: #999;
+  border-color: var(--sunglow);
+  background-color: var(--emerald);
+  color: var(--white);
 }
 
-.week-select {
-  margin: 1rem 0;
+.full-drop-zone {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, var(--sunglow), var(--bright-pink-crayola));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  color: var(--white);
+  font-size: 1.8rem;
   text-align: center;
-}
-
-.timetable {
-  margin-top: 2rem;
+  transition: opacity 0.3s;
+  border-radius: 0;
 }
 </style>
