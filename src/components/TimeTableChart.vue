@@ -112,7 +112,7 @@ function drawChart() {
     .attr('width', xScale.bandwidth())
     //  bar height => difference between y(start) and y(end)
     .attr('height', (d) => yScale(d.end) - yScale(d.start))
-    .attr('fill', '#4285F4') // pick any color you like
+    .attr('fill', 'var(--bright-pink-crayola)')
     .append('title')
     .text((x) => `${factionalTimeToString(x.start)} - ${factionalTimeToString(x.end)}`)
 
