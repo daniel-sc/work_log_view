@@ -3,11 +3,21 @@
     <div class="header-content">
       <h1>Work Log Analyzer</h1>
       <p class="purpose-text">
-        Upload your CSV work log file to visualize and analyze your weekly work patterns. Adjust the idle threshold to filter out breaks.
+        Upload your CSV work log file to visualize and analyze your weekly work patterns. Adjust the
+        idle threshold to filter out breaks.
       </p>
       <p>
-        Work log files are assumed to be created by <a href="https://github.com/daniel-sc/work_log" target="_blank" rel="noopener noreferrer">work_log</a>
-        - this viewer can be found on <a href="https://github.com/daniel-sc/work_log_view" target="_blank" rel="noopener noreferrer">GitHub</a>.
+        Work log files are assumed to be created by
+        <a href="https://github.com/daniel-sc/work_log" target="_blank" rel="noopener noreferrer"
+          >work_log</a
+        >
+        - this viewer can be found on
+        <a
+          href="https://github.com/daniel-sc/work_log_view"
+          target="_blank"
+          rel="noopener noreferrer"
+          >GitHub</a
+        >.
       </p>
     </div>
   </div>
@@ -20,7 +30,13 @@
       <p>Drag and drop your CSV file here</p>
     </div>
     <!-- Full-screen overlay drop zone when dragging -->
-    <div v-if="isDragging" class="full-drop-zone" @dragover.prevent @dragenter.prevent @drop="handleDrop">
+    <div
+      v-if="isDragging"
+      class="full-drop-zone"
+      @dragover.prevent
+      @dragenter.prevent
+      @drop="handleDrop"
+    >
       <p>Drop your CSV file anywhere</p>
     </div>
     <div v-if="weeks.length > 0" class="week-select">
@@ -43,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   type AggregatedBlock,
   aggregateToBlocks,
@@ -64,6 +80,7 @@ const blocks = computed<AggregatedBlock[]>(() =>
   aggregateToBlocks(parsedEntries.value, idleThreshold.value),
 )
 const weeks = computed<WeekData[]>(() => groupBlocksByWeek(blocks.value))
+const weekStarts = computed<string[]>(() => weeks.value.map((week) => week.weekStart.toISOString()))
 
 watch(rawCsvText, () => {
   caches.open('worklog').then((cache) => {
@@ -71,14 +88,12 @@ watch(rawCsvText, () => {
   })
 })
 
-watch(weeks, (newWeeks) => {
-  // Automatically select the latest week.
-  if (newWeeks.length > 0) {
-    const latestWeek = newWeeks.reduce((prev, curr) =>
-      curr.weekStart > prev.weekStart ? curr : prev,
-    )
-    selectedWeekStart.value = latestWeek.weekStart.toISOString()
+watch(weekStarts, (newWeeks, oldWeeks) => {
+  if (newWeeks.join(',') === oldWeeks.join(',') || newWeeks.length === 0) {
+    return
   }
+  // Automatically select the latest week.
+  selectedWeekStart.value = newWeeks.reduce((prev, curr) => (curr > prev ? curr : prev))
 })
 
 // The selected week, identified by its Monday (ISO string).
@@ -87,6 +102,27 @@ const selectedWeekStart = ref<string>('')
 // Drag state management for full-screen drop zone.
 const isDragging = ref(false)
 const dragCounter = ref(0)
+
+// Compute the selected week from weeks and the select value.
+const selectedWeek = computed<WeekData | null>(
+  () =>
+    weeks.value.find((week) => week.weekStart.toISOString() === selectedWeekStart.value) || null,
+)
+const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+const timeTableChartData = computed(() => {
+  if (!selectedWeek.value) {
+    return []
+  }
+  return selectedWeek.value.days.flatMap((d) =>
+    d.blocks.map((b) => ({
+      day: weekdays[(d.date.getDay() + 6) % 7],
+      label: 'work',
+      start: getTimeFractional(b.from),
+      end: getTimeFractional(b.to),
+    })),
+  )
+})
 
 function handleDragEnter(event: DragEvent) {
   event.preventDefault()
@@ -164,35 +200,7 @@ watch(idleThreshold, (newVal) => {
   const config = { idleThreshold: newVal }
   localStorage.setItem(
     'worklogConfig',
-    JSON.stringify(config, (key, value) =>
-      value instanceof Date ? value.toISOString() : value,
-    ),
-  )
-})
-
-// Compute the selected week from weeks and the select value.
-const selectedWeek = ref<WeekData | null>(null)
-watch(
-  [weeks, selectedWeekStart],
-  () => {
-    selectedWeek.value =
-      weeks.value.find((week) => week.weekStart.toISOString() === selectedWeekStart.value) || null
-  },
-  { immediate: true },
-)
-const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-
-const timeTableChartData = computed(() => {
-  if (!selectedWeek.value) {
-    return []
-  }
-  return selectedWeek.value.days.flatMap((d) =>
-    d.blocks.map((b) => ({
-      day: weekdays[(d.date.getDay() + 6) % 7],
-      label: 'work',
-      start: getTimeFractional(b.from),
-      end: getTimeFractional(b.to),
-    })),
+    JSON.stringify(config, (key, value) => (value instanceof Date ? value.toISOString() : value)),
   )
 })
 
@@ -206,7 +214,6 @@ function getTimeFractional(date: Date): number {
 </script>
 
 <style scoped>
-
 .header-banner {
   width: 100%;
   background: linear-gradient(90deg, var(--sunglow), var(--bright-pink-crayola));
@@ -268,7 +275,9 @@ select {
   padding: 3rem;
   text-align: center;
   color: var(--grey-dark);
-  transition: border-color 0.3s, background-color 0.3s;
+  transition:
+    border-color 0.3s,
+    background-color 0.3s;
   background-color: var(--grey-light);
   margin-bottom: 1.5rem;
 }
