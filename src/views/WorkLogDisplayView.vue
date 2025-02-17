@@ -23,19 +23,24 @@
   </div>
   <div class="app-container">
     <div class="config">
-      <label for="idleThreshold">Ignore idle time up to (sec):</label>
-      <input id="idleThreshold" type="number" v-model.number="idleThreshold" min="0" />
+      <div>
+        <label for="idleThreshold">Ignore idle time up to (sec):</label>
+        <input id="idleThreshold" type="number" v-model.number="idleThreshold" min="0" />
+      </div>
+      <div>
+        <label for="showSpan1">Show day span</label>
+        <input id="showSpan1" type="checkbox" v-model="showSpan" />
+      </div>
+      <div>
+        <label for="showWeekend">Show weekend</label>
+        <input id="showWeekend" type="checkbox" v-model="showWeekend" />
+      </div>
     </div>
     <div class="drop-area">
       <p>Drag and drop your CSV file here</p>
     </div>
     <!-- Full-screen overlay drop zone when dragging -->
-    <div
-      v-if="isDragging"
-      class="full-drop-zone"
-      @dragover.prevent
-      @drop="handleDrop"
-    >
+    <div v-if="isDragging" class="full-drop-zone" @dragover.prevent @drop="handleDrop">
       <p>Drop your CSV file anywhere</p>
     </div>
     <div v-if="weeks.length > 0" class="week-select">
@@ -52,7 +57,7 @@
     </div>
     <div v-if="selectedWeek" class="timetable">
       <h2>TimeTable for Week of {{ formatDate(selectedWeek.weekStart) }}</h2>
-      <time-table-chart :data="timeTableChartData"></time-table-chart>
+      <time-table-chart :data="timeTableChartData" :show-weekend="showWeekend" :show-span="showSpan"></time-table-chart>
     </div>
   </div>
 </template>
@@ -71,6 +76,13 @@ import TimeTableChart from '@/components/TimeTableChart.vue'
 
 // Configuration: idle threshold (in seconds).
 const idleThreshold = ref(300)
+const showSpan = ref(false)
+const showWeekend = ref(false)
+const config = computed(() => ({
+  idleThreshold: idleThreshold.value,
+  showSpan: showSpan.value,
+  showWeekend: showWeekend.value,
+}))
 // Raw CSV text and parsed entries.
 const rawCsvText = ref<string>('')
 const parsedEntries = computed<CsvEntry[]>(() => parseCsv(rawCsvText.value))
@@ -158,12 +170,18 @@ const handleDrop = (event: DragEvent) => {
 
 onMounted(async () => {
   // Load configuration.
-  const savedConfig = localStorage.getItem('worklogConfig')
+  const savedConfig = localStorage.getItem('worklogConfig2')
   if (savedConfig) {
     try {
       const config = JSON.parse(savedConfig)
       if (config.idleThreshold !== undefined) {
         idleThreshold.value = config.idleThreshold
+      }
+      if (config.showSpan !== undefined) {
+        showSpan.value = config.showSpan
+      }
+      if(config.showWeekend !== undefined) {
+        showWeekend.value = config.showWeekend
       }
     } catch (e) {
       console.error('Failed to parse config from localStorage', e)
@@ -187,11 +205,10 @@ onUnmounted(() => {
 })
 
 // Persist idleThreshold changes.
-watch(idleThreshold, (newVal) => {
-  const config = { idleThreshold: newVal }
+watch(config, (c) => {
   localStorage.setItem(
-    'worklogConfig',
-    JSON.stringify(config, (key, value) => (value instanceof Date ? value.toISOString() : value)),
+    'worklogConfig2',
+    JSON.stringify(c, (key, value) => (value instanceof Date ? value.toISOString() : value)),
   )
 })
 
@@ -222,7 +239,6 @@ function getTimeFractional(date: Date): number {
 
 .app-container {
   max-width: 1000px;
-  width: 80vw;
   margin: 0 auto;
   padding: 2rem;
   background-color: var(--white);
@@ -232,6 +248,16 @@ function getTimeFractional(date: Date): number {
 }
 
 /* Section backgrounds for flat, edgy design */
+.config {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+
+  > div {
+    display: flex;
+    align-items: center;
+  }
+}
 .config,
 .week-select,
 .timetable {
@@ -252,6 +278,10 @@ function getTimeFractional(date: Date): number {
   border: 1px solid var(--grey);
   border-radius: 0;
   width: 100px;
+}
+.config input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
 }
 
 select {

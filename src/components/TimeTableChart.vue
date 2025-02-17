@@ -30,19 +30,20 @@ const props = withDefaults(
     height?: number
     minHour?: number
     maxHour?: number
-    days?: string[]
+    showWeekend?: boolean
+    showSpan?: boolean
   }>(),
   {
     /* Timetable data: array of objects with day, start, end, label, etc. */
     data: () => [],
     /* Overall width and height of the SVG (in px). */
-    width: Math.min(window.innerWidth * 0.8, 950),
+    width: Math.min(window.innerWidth - 3 * 32, 900),
     height: 500,
     /* Minimum and maximum hour to show on the y-axis. Adjust as desired. */
     minHour: 7,
     maxHour: 18,
-    /* Which days to show on the x-axis. */
-    days: () => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    showWeekend: false,
+    showSpan: false,
   },
 )
 
@@ -54,7 +55,7 @@ onMounted(() => {
 
 // Re-draw chart whenever props.data changes.
 watch(
-  () => props.data,
+  () => [props.data, props.showWeekend, props.showSpan],
   () => {
     nextTick(() => drawChart())
   },
@@ -80,7 +81,10 @@ function drawChart() {
   // A group translated by the margin.
   const g = svg.append('g').attr('transform', `translate(${margin.left}, ${margin.top})`)
 
-  const xScale = d3.scaleBand().domain(props.days).range([0, innerWidth]).padding(0.2)
+  const days = props.showWeekend
+    ? ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+  const xScale = d3.scaleBand().domain(days).range([0, innerWidth]).padding(0.4)
 
   const minHour = Math.min(props.minHour, ...props.data.map((d) => d.start))
   const maxHour = Math.max(props.maxHour, ...props.data.map((d) => d.end))
@@ -103,7 +107,7 @@ function drawChart() {
   )
 
   g.selectAll('rect')
-    .data(props.data)
+    .data(props.data.filter((d) => days.includes(d.day)))
     .enter()
     .append('rect')
     .attr('x', (d) => xScale(d.day) || 0)
@@ -130,41 +134,43 @@ function drawChart() {
       return `Total: ${factionalTimeToString(total)}`
     })
 
-  // 7. Calculate total time and start/end times for each day.
-  const dayData = props.days.map((day) => {
-    const dayEntries = props.data.filter((d) => d.day === day)
-    const start = Math.min(...dayEntries.map((d) => d.start))
-    const end = Math.max(...dayEntries.map((d) => d.end))
-    return { day, start, end, blockCount: dayEntries.length }
-  })
+  if (props.showSpan) {
+    // 7. Calculate total time and start/end times for each day.
+    const dayData = days.map((day) => {
+      const dayEntries = props.data.filter((d) => d.day === day)
+      const start = Math.min(...dayEntries.map((d) => d.start))
+      const end = Math.max(...dayEntries.map((d) => d.end))
+      return { day, start, end, blockCount: dayEntries.length }
+    })
 
-  // 8. Draw braces and labels for total time.
-  dayData.forEach((d) => {
-    if (d.start < d.end && d.blockCount > 1) {
-      // Draw brace
-      const x = xScale(d.day)! + xScale.bandwidth() + 5
-      const y1 = yScale(d.start)
-      const y2 = yScale(d.end)
-      const midY = (y1 + y2) / 2
-      const depth = 5
-      const bracePath = `M${x},${y1} l${depth},${depth} L${x + depth},${y2 - depth} l-${depth},${depth}`
+    // 8. Draw braces and labels for total time.
+    dayData.forEach((d) => {
+      if (d.start < d.end && d.blockCount > 1) {
+        // Draw brace
+        const x = xScale(d.day)! + xScale.bandwidth() + 5
+        const y1 = yScale(d.start)
+        const y2 = yScale(d.end)
+        const midY = (y1 + y2) / 2
+        const depth = 5
+        const bracePath = `M${x},${y1} l${depth},${depth} L${x + depth},${y2 - depth} l-${depth},${depth}`
 
-      g.append('path')
-        .attr('d', bracePath)
-        .attr('stroke', 'black')
-        .attr('stroke-width', 1)
-        .attr('fill', 'none')
+        g.append('path')
+          .attr('d', bracePath)
+          .attr('stroke', 'black')
+          .attr('stroke-width', 1)
+          .attr('fill', 'none')
 
-      g.append('text')
-        .attr('x', x)
-        .attr('y', midY - 6)
-        .attr('text-anchor', 'start')
-        .attr('alignment-baseline', 'middle')
-        .attr('class', 'time-span-label')
-        .attr('transform', `rotate(90, ${x + 7}, ${midY})`) // Rotate text by -90 degrees
-        .text(`${factionalTimeToString(d.end - d.start)}`)
-    }
-  })
+        g.append('text')
+          .attr('x', x)
+          .attr('y', midY - 6)
+          .attr('text-anchor', 'start')
+          .attr('alignment-baseline', 'middle')
+          .attr('class', 'time-span-label')
+          .attr('transform', `rotate(90, ${x + 7}, ${midY})`) // Rotate text by -90 degrees
+          .text(`${factionalTimeToString(d.end - d.start)}`)
+      }
+    })
+  }
 }
 
 function factionalTimeToString(time: number): string {
