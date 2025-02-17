@@ -1,26 +1,31 @@
 <template>
   <!-- The chart will be rendered inside this div -->
   <div ref="chartContainer" />
+  <div
+    class="tooltip"
+    v-if="showTooltip"
+    :style="{ top: Math.round(tooltipPosition.y) + 'px', left: Math.round(tooltipPosition.x) + 'px' }"
+  >
+    <div style="font-weight: bold">Top Activities</div>
+    <div v-for="activity in hoveredRect?.activities.slice(0, 2)" :key="activity?.label">
+      <span style="font-weight: bolder">{{ factionalTimeToString(activity.durationSec / (60*60)) }}</span>
+      <span style="margin-left: 0.3rem">{{ activity.title }}</span>
+    </div>
+    <hr>
+    <div>Total: <span style="font-weight: bold">{{ factionalTimeToString(hoveredRect.end - hoveredRect.start) }}</span></div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { nextTick, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'
+import type { AggregatedActivity } from '@/aggregator.ts'
 
-/**
- * Example of the expected data format:
- * [
- *   { day: "Monday",    start: 6,  end: 9,   label: "Some Activity" },
- *   { day: "Monday",    start: 10, end: 11,  label: "Another Task" },
- *   { day: "Tuesday",   start: 7,  end: 8.5, label: "Morning Run" },
- *   { day: "Wednesday", start: 15, end: 17,  label: "Project Work" }
- * ]
- */
 interface TimetableEntry {
   day: string
   start: number
   end: number
-  label: string
+  activities: AggregatedActivity[]
 }
 
 const props = withDefaults(
@@ -48,6 +53,9 @@ const props = withDefaults(
 )
 
 const chartContainer = ref(null)
+const showTooltip = ref(false)
+const hoveredRect = ref<TimetableEntry | null>(null)
+const tooltipPosition = ref({ x: 0, y: 0 })
 
 onMounted(() => {
   drawChart()
@@ -171,6 +179,16 @@ function drawChart() {
       }
     })
   }
+
+  g.selectAll('rect')
+    .on('pointerenter pointermove', (evt) => {
+      showTooltip.value = true
+      hoveredRect.value = evt.target.__data__
+      const b = (evt.target as HTMLElement).getBoundingClientRect();
+
+      tooltipPosition.value = { x: b.left + b.width + 5, y: b.top }
+    })
+    .on('pointerleave', () => (showTooltip.value = false))
 }
 
 function factionalTimeToString(time: number): string {
@@ -183,5 +201,18 @@ function factionalTimeToString(time: number): string {
 div :deep(text) {
   font-size: var(--font-size);
   font-family: var(--font-family), sans-serif;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 2;
+  background-color: var(--emerald);
+  padding: 0.5rem;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--midnight-green);
+  margin: 0.5rem 0;
 }
 </style>

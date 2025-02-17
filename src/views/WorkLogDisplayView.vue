@@ -128,8 +128,8 @@ const timeTableChartData = computed(() => {
   return selectedWeek.value.days.flatMap((d) =>
     d.blocks.map((b) => ({
       day: weekdays[(d.date.getDay() + 6) % 7],
-      label: 'work',
       start: getTimeFractional(b.from),
+      activities: b.activities,
       end: getTimeFractional(b.to),
     })),
   )

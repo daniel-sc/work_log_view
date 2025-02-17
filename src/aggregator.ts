@@ -87,7 +87,7 @@ export function aggregateToBlocks(
           title,
           app: appName,
           durationSec: duration,
-        })),
+        })).sort((a, b) => b.durationSec - a.durationSec),
       })
       // Start a new block.
       blockStart = next.timestamp
