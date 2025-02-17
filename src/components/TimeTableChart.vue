@@ -4,7 +4,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'
 
 /**
@@ -23,25 +23,28 @@ interface TimetableEntry {
   label: string
 }
 
-const props = withDefaults(defineProps<{
-  data: TimetableEntry[]
-  width?: number
-  height?: number
-  minHour?: number
-  maxHour?: number
-  days?: string[]
-}>(), {
-  /* Timetable data: array of objects with day, start, end, label, etc. */
-  data: () => [],
-  /* Overall width and height of the SVG (in px). */
-  width: Math.min(window.innerWidth * 0.8, 950),
-  height: 500,
-  /* Minimum and maximum hour to show on the y-axis. Adjust as desired. */
-  minHour: 7,
-  maxHour: 18,
-  /* Which days to show on the x-axis. */
-  days: () => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-})
+const props = withDefaults(
+  defineProps<{
+    data: TimetableEntry[]
+    width?: number
+    height?: number
+    minHour?: number
+    maxHour?: number
+    days?: string[]
+  }>(),
+  {
+    /* Timetable data: array of objects with day, start, end, label, etc. */
+    data: () => [],
+    /* Overall width and height of the SVG (in px). */
+    width: Math.min(window.innerWidth * 0.8, 950),
+    height: 500,
+    /* Minimum and maximum hour to show on the y-axis. Adjust as desired. */
+    minHour: 7,
+    maxHour: 18,
+    /* Which days to show on the x-axis. */
+    days: () => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+  },
+)
 
 const chartContainer = ref(null)
 
@@ -63,7 +66,7 @@ function drawChart() {
   d3.select(chartContainer.value).select('svg').remove()
 
   // 2. Set up dimensions and margins.
-  const margin = { top: 20, right: 20, bottom: 30, left: 50 }
+  const margin = { top: 20, right: 40, bottom: 40, left: 50 }
   const innerWidth = props.width - margin.left - margin.right
   const innerHeight = props.height - margin.top - margin.bottom
 
@@ -77,17 +80,8 @@ function drawChart() {
   // A group translated by the margin.
   const g = svg.append('g').attr('transform', `translate(${margin.left}, ${margin.top})`)
 
-  // 4. Create scales.
-  //    a) x-scale: scaleBand for discrete weekdays
-  const xScale = d3
-    .scaleBand()
-    .domain(props.days as string[]) // e.g. ['Monday', 'Tuesday', ...]
-    .range([0, innerWidth])
-    .padding(0.2)
+  const xScale = d3.scaleBand().domain(props.days).range([0, innerWidth]).padding(0.2)
 
-  //    b) y-scale: scaleLinear for hours (desc order, top=earliest)
-  //       By default, the top is 0 and bottom is innerHeight.
-  //       We want a domain of [maxHour, minHour] to invert it (max at top).
   const minHour = Math.min(props.minHour, ...props.data.map((d) => d.start))
   const maxHour = Math.max(props.maxHour, ...props.data.map((d) => d.end))
   const yScale = d3
@@ -95,19 +89,19 @@ function drawChart() {
     .domain([Math.floor(minHour), Math.ceil(maxHour)]) // reversed so top is max
     .range([0, innerHeight])
 
-  // 5. Draw axes.
-  //    a) X-axis
-  g.append('g').attr('transform', `translate(0, ${innerHeight})`).call(d3.axisBottom(xScale))
+  const xAxis = g
+    .append('g')
+    .attr('transform', `translate(0, ${innerHeight})`)
+    .call(d3.axisBottom(xScale))
 
-  //    b) Y-axis, with a custom formatter for hours
-  const formatHour = (d: number | d3.NumberValue) => {
-    const hour = Math.floor(typeof d === 'number' ? d : d.valueOf())
-    return hour + ':00'
-  }
-  g.append('g').call(d3.axisLeft(yScale).tickFormat(formatHour))
+  g.append('g').call(
+    d3
+      .axisLeft(yScale)
+      .tickFormat(
+        (d: number | d3.NumberValue) => Math.floor(typeof d === 'number' ? d : d.valueOf()) + ':00',
+      ),
+  )
 
-  // 6. Draw bars for each item in props.data.
-  //    Each item has a 'day', 'start', 'end', etc.
   g.selectAll('rect')
     .data(props.data)
     .enter()
@@ -122,23 +116,19 @@ function drawChart() {
     .append('title')
     .text((x) => `${factionalTimeToString(x.start)} - ${factionalTimeToString(x.end)}`)
 
-  // 7. Calculate total time for each day.
-  const totalTimePerDay = props.days.map((day) => {
-    const total = props.data
-      .filter((d) => d.day === day)
-      .reduce((sum, d) => sum + (d.end - d.start), 0)
-    return { day, total }
-  })
-  // 8. Add labels for total time.
-  g.selectAll('.total-time-label')
-    .data(totalTimePerDay)
-    .enter()
+  xAxis
+    .selectAll('.tick')
     .append('text')
-    .attr('class', 'total-time-label')
-    .attr('x', (d) => xScale(d.day)! + xScale.bandwidth() / 2)
-    .attr('y', -5) // Position above the top of the chart
+    .attr('x', 0)
+    .attr('y', 40)
+    .attr('fill', 'currentColor')
     .attr('text-anchor', 'middle')
-    .text((d) => `Total: ${factionalTimeToString(d.total)}`);
+    .text((d) => {
+      const total = props.data
+        .filter((x) => x.day === d)
+        .reduce((sum, x) => sum + (x.end - x.start), 0)
+      return `Total: ${factionalTimeToString(total)}`
+    })
 
   // 7. Calculate total time and start/end times for each day.
   const dayData = props.days.map((day) => {
@@ -148,7 +138,6 @@ function drawChart() {
     return { day, start, end, blockCount: dayEntries.length }
   })
 
-
   // 8. Draw braces and labels for total time.
   dayData.forEach((d) => {
     if (d.start < d.end && d.blockCount > 1) {
@@ -157,20 +146,22 @@ function drawChart() {
       const y1 = yScale(d.start)
       const y2 = yScale(d.end)
       const midY = (y1 + y2) / 2
-      const bracePath = `M${x},${y1} Q${x + 10},${midY} ${x},${y2}`
+      const depth = 5
+      const bracePath = `M${x},${y1} l${depth},${depth} L${x + depth},${y2 - depth} l-${depth},${depth}`
 
       g.append('path')
         .attr('d', bracePath)
         .attr('stroke', 'black')
-        .attr('stroke-width', 2)
+        .attr('stroke-width', 1)
         .attr('fill', 'none')
 
       g.append('text')
-        .attr('x', x + 15)
-        .attr('y', midY)
+        .attr('x', x)
+        .attr('y', midY - 6)
         .attr('text-anchor', 'start')
         .attr('alignment-baseline', 'middle')
-        .attr('transform', `rotate(90, ${x + 15}, ${midY})`) // Rotate text by -90 degrees
+        .attr('class', 'time-span-label')
+        .attr('transform', `rotate(90, ${x + 7}, ${midY})`) // Rotate text by -90 degrees
         .text(`${factionalTimeToString(d.end - d.start)}`)
     }
   })
@@ -183,5 +174,8 @@ function factionalTimeToString(time: number): string {
 </script>
 
 <style scoped>
-/* You can add custom styling here if needed. */
+div :deep(text) {
+  font-size: var(--font-size);
+  font-family: var(--font-family), sans-serif;
+}
 </style>
