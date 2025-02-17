@@ -26,7 +26,7 @@
       <label for="idleThreshold">Ignore idle time up to (sec):</label>
       <input id="idleThreshold" type="number" v-model.number="idleThreshold" min="0" />
     </div>
-    <div class="drop-area" @dragover.prevent @dragenter.prevent @drop="handleDrop">
+    <div class="drop-area">
       <p>Drag and drop your CSV file here</p>
     </div>
     <!-- Full-screen overlay drop zone when dragging -->
@@ -34,7 +34,6 @@
       v-if="isDragging"
       class="full-drop-zone"
       @dragover.prevent
-      @dragenter.prevent
       @drop="handleDrop"
     >
       <p>Drop your CSV file anywhere</p>
@@ -139,10 +138,6 @@ function handleDragLeave(event: DragEvent) {
   }
 }
 
-function handleDragOver(event: DragEvent) {
-  event.preventDefault()
-}
-
 // Handle CSV file drop.
 const handleDrop = (event: DragEvent) => {
   event.preventDefault()
@@ -184,15 +179,11 @@ onMounted(async () => {
   // Add window drag event listeners for full-screen drop zone.
   window.addEventListener('dragenter', handleDragEnter)
   window.addEventListener('dragleave', handleDragLeave)
-  window.addEventListener('dragover', handleDragOver)
-  window.addEventListener('drop', handleDrop)
 })
 
 onUnmounted(() => {
   window.removeEventListener('dragenter', handleDragEnter)
   window.removeEventListener('dragleave', handleDragLeave)
-  window.removeEventListener('dragover', handleDragOver)
-  window.removeEventListener('drop', handleDrop)
 })
 
 // Persist idleThreshold changes.
