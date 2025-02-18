@@ -3,16 +3,19 @@
   <div ref="chartContainer" />
   <div
     class="tooltip"
-    v-if="showTooltip"
+    v-if="hoveredRect"
     :style="{ top: Math.round(tooltipPosition.y) + 'px', left: Math.round(tooltipPosition.x) + 'px' }"
   >
     <div style="font-weight: bold">Top Activities</div>
-    <div v-for="activity in hoveredRect?.activities.slice(0, 2)" :key="activity?.label">
+    <div v-for="activity in hoveredRect.activities.slice(0, 2)">
       <span style="font-weight: bolder">{{ factionalTimeToString(activity.durationSec / (60*60)) }}</span>
       <span style="margin-left: 0.3rem">{{ activity.title }}</span>
     </div>
     <hr>
-    <div>Total: <span style="font-weight: bold">{{ factionalTimeToString(hoveredRect.end - hoveredRect.start) }}</span></div>
+    <div>
+      Total: <span style="font-weight: bold">{{ factionalTimeToString(hoveredRect.end - hoveredRect.start) }}</span>
+      <span style="margin-left: 0.3rem">({{factionalTimeToString(hoveredRect.start)}} - {{factionalTimeToString(hoveredRect.end)}})</span>
+    </div>
   </div>
 </template>
 
@@ -53,8 +56,7 @@ const props = withDefaults(
 )
 
 const chartContainer = ref(null)
-const showTooltip = ref(false)
-const hoveredRect = ref<TimetableEntry | null>(null)
+const hoveredRect = ref<TimetableEntry>()
 const tooltipPosition = ref({ x: 0, y: 0 })
 
 onMounted(() => {
@@ -125,8 +127,6 @@ function drawChart() {
     //  bar height => difference between y(start) and y(end)
     .attr('height', (d) => yScale(d.end) - yScale(d.start))
     .attr('fill', 'var(--bright-pink-crayola)')
-    .append('title')
-    .text((x) => `${factionalTimeToString(x.start)} - ${factionalTimeToString(x.end)}`)
 
   xAxis
     .selectAll('.tick')
@@ -182,13 +182,12 @@ function drawChart() {
 
   g.selectAll('rect')
     .on('pointerenter pointermove', (evt) => {
-      showTooltip.value = true
       hoveredRect.value = evt.target.__data__
       const b = (evt.target as HTMLElement).getBoundingClientRect();
 
       tooltipPosition.value = { x: b.left + b.width + 5, y: b.top }
     })
-    .on('pointerleave', () => (showTooltip.value = false))
+    .on('pointerleave', () => (hoveredRect.value = undefined))
 }
 
 function factionalTimeToString(time: number): string {
