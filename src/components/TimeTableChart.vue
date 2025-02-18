@@ -4,17 +4,26 @@
   <div
     class="tooltip"
     v-if="hoveredRect"
-    :style="{ top: Math.round(tooltipPosition.y) + 'px', left: Math.round(tooltipPosition.x) + 'px' }"
+    :style="{
+      top: Math.round(tooltipPosition.y) + 'px',
+      left: Math.round(tooltipPosition.x) + 'px',
+    }"
   >
     <div style="font-weight: bold">Top Activities</div>
     <div v-for="activity in hoveredRect.activities.slice(0, 2)">
-      <span style="font-weight: bolder">{{ factionalTimeToString(activity.durationSec / (60*60)) }}</span>
+      <span style="font-weight: bolder">{{ formatSeconds(activity.durationSec) }}</span>
       <span style="margin-left: 0.3rem">{{ activity.title }}</span>
     </div>
-    <hr>
+    <hr />
     <div>
-      Total: <span style="font-weight: bold">{{ factionalTimeToString(hoveredRect.end - hoveredRect.start) }}</span>
-      <span style="margin-left: 0.3rem">({{factionalTimeToString(hoveredRect.start)}} - {{factionalTimeToString(hoveredRect.end)}})</span>
+      Total:
+      <span style="font-weight: bold">{{
+          formatDecimalHours(hoveredRect.end - hoveredRect.start)
+        }}</span>
+      <span style="margin-left: 0.3rem"
+        >({{ formatDecimalHours(hoveredRect.start) }} -
+        {{ formatDecimalHours(hoveredRect.end) }})</span
+      >
     </div>
   </div>
 </template>
@@ -23,6 +32,7 @@
 import { nextTick, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'
 import type { AggregatedActivity } from '@/aggregator.ts'
+import { formatDecimalHours, formatSeconds } from '@/formatDecimalHours.ts'
 
 interface TimetableEntry {
   day: string
@@ -139,7 +149,7 @@ function drawChart() {
       const total = props.data
         .filter((x) => x.day === d)
         .reduce((sum, x) => sum + (x.end - x.start), 0)
-      return `Total: ${factionalTimeToString(total)}`
+      return `Total: ${formatDecimalHours(total)}`
     })
 
   if (props.showSpan) {
@@ -175,7 +185,7 @@ function drawChart() {
           .attr('alignment-baseline', 'middle')
           .attr('class', 'time-span-label')
           .attr('transform', `rotate(90, ${x + 7}, ${midY})`) // Rotate text by -90 degrees
-          .text(`${factionalTimeToString(d.end - d.start)}`)
+          .text(`${formatDecimalHours(d.end - d.start)}`)
       }
     })
   }
@@ -183,16 +193,11 @@ function drawChart() {
   g.selectAll('rect')
     .on('pointerenter pointermove', (evt) => {
       hoveredRect.value = evt.target.__data__
-      const b = (evt.target as HTMLElement).getBoundingClientRect();
+      const b = (evt.target as HTMLElement).getBoundingClientRect()
 
       tooltipPosition.value = { x: b.left + b.width + 5, y: b.top }
     })
     .on('pointerleave', () => (hoveredRect.value = undefined))
-}
-
-function factionalTimeToString(time: number): string {
-  const minutes = Math.round((time % 1) * 60)
-  return `${Math.floor(time)}:${minutes < 10 ? '0' : ''}${minutes}`
 }
 </script>
 

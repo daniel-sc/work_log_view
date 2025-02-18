@@ -56,7 +56,8 @@
       </select>
     </div>
     <div v-if="selectedWeek" class="timetable">
-      <h2>TimeTable for Week of {{ formatDate(selectedWeek.weekStart) }}</h2>
+      <h2>Week of {{ formatDate(selectedWeek.weekStart) }} - Total:
+        {{ formatSeconds(selectedWeek.totalDurationSec) }}</h2>
       <time-table-chart :data="timeTableChartData" :show-weekend="showWeekend" :show-span="showSpan"></time-table-chart>
     </div>
   </div>
@@ -73,6 +74,7 @@ import {
   type WeekData,
 } from '../aggregator'
 import TimeTableChart from '@/components/TimeTableChart.vue'
+import { formatSeconds } from '../formatDecimalHours.ts'
 
 // Configuration: idle threshold (in seconds).
 const idleThreshold = ref(300)
