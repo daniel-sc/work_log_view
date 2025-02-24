@@ -48,9 +48,18 @@ export function parseCsv(csvText: string): CsvEntry[] {
 }
 
 /**
+ * @return true, if next is on the next day after prev.
+ */
+function isOnNextDay(prev: Date, nex: Date): boolean {
+  return prev.getDate() !== nex.getDate()
+}
+
+/**
  * Aggregates CSV entries into blocks.
  * A block ends when the gap between consecutive entries exceeds ignoreIdleTimeUpToSec.
  * Within a block, each activity (by title) has its duration (sum of gaps) computed.
+ *
+ * Additionally, blocks end at midnight, even if the gap is less than ignoreIdleTimeUpToSec.
  */
 export function aggregateToBlocks(
   entries: CsvEntry[],
@@ -67,7 +76,8 @@ export function aggregateToBlocks(
     const current = entries[i]
     const next = entries[i + 1]
     const gapSec = (next.timestamp.getTime() - current.timestamp.getTime()) / 1000
-    if (gapSec <= ignoreIdleTimeUpToSec) {
+
+    if (gapSec <= ignoreIdleTimeUpToSec && !isOnNextDay(blockEnd, next.timestamp)) {
       // Accumulate duration for the current activity.
       const key = `${current.appName}::${current.title}`
       activityMap[key] = {
@@ -112,7 +122,6 @@ export function aggregateToBlocks(
 
   return blocks
 }
-
 /**
  * Data structure for grouping blocks.
  */
