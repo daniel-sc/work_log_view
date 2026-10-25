@@ -1,0 +1,35 @@
+[tools]
+node = "22.23.4"
+bun = "1.2.23"
+
+[tasks.install]
+description = "Install dependencies from the committed lockfile"
+run = "bun install --frozen-lockfile"
+
+[tasks.dev]
+description = "Start the Vite development server"
+run = "bun run dev"
+
+[tasks.build]
+description = "Type-check and build for production"
+run = "bun run build"
+
+[tasks.preview]
+description = "Preview the production build"
+run = "bun run preview"
+
+[tasks.lint]
+description = "Check lint without modifying files"
+run = "bunx --no-install eslint ."
+
+[tasks."type-check"]
+description = "Check Vue and TypeScript types"
+run = "bun run type-check"
+
+[tasks.test]
+description = "Run Vitest once"
+run = "bun run test:unit --run"
+
+[tasks.check]
+description = "Run lint, type checking, and production build"
+depends = ["lint", "build"]
