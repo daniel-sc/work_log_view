@@ -1,5 +1,7 @@
 // src/aggregator.ts
 
+import { csvParseRows } from 'd3'
+
 export interface CsvEntry {
   timestamp: Date
   appName: string
@@ -23,13 +25,11 @@ export interface AggregatedBlock {
 
 /**
  * Parses CSV text into an array of CsvEntry.
- * Skips invalid lines and sorts the result by timestamp.
+ * Decodes quoted fields, trims text, skips invalid rows, and sorts by timestamp.
  */
 export function parseCsv(csvText: string): CsvEntry[] {
-  const lines = csvText.split(/\r?\n/).filter((line) => line.trim() !== '')
   const entries: CsvEntry[] = []
-  for (const line of lines) {
-    const parts = line.split(',')
+  for (const parts of csvParseRows(csvText)) {
     if (parts.length < 3) continue
     try {
       const timestamp = new Date(parts[0].trim())
@@ -40,7 +40,7 @@ export function parseCsv(csvText: string): CsvEntry[] {
       const value2 = parts.length > 4 ? Number(parts[4].trim()) : NaN
       entries.push({ timestamp, appName, title, value1, value2 })
     } catch (err) {
-      console.error('Failed to parse CSV line:', line, err)
+      console.error('Failed to parse CSV row:', parts, err)
     }
   }
   entries.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
