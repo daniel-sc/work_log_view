@@ -31,5 +31,5 @@ description = "Run Vitest once"
 run = "bun run test:unit --run"
 
 [tasks.check]
-description = "Run lint, type checking, and production build"
-depends = ["lint", "build"]
+description = "Run lint, tests, type checking, and production build"
+depends = ["lint", "test", "build"]

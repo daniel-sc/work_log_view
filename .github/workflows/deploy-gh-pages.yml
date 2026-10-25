@@ -1,37 +1,52 @@
-name: Build website and deploy to GitHub Pages
+name: Check and deploy to GitHub Pages
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ['**']
+  pull_request:
+    branches: [master]
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+# Cancel outdated branch checks, but let master deployments finish.
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
-  build:
+  check:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.2
+        uses: actions/checkout@v7
+      - name: Set up pinned tools
+        uses: jdx/mise-action@v5
       - name: Install dependencies
-        run: bun install
+        run: mise run install
+      - name: Lint
+        run: mise run lint
+      - name: Test
+        run: mise run test
       - name: Build
-        run: bun run build --base=/work_log_view/
+        run: mise run build -- --base=/work_log_view/
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: actions/upload-pages-artifact@v5
         with:
           path: 'dist'
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
