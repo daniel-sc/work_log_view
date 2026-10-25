@@ -193,10 +193,10 @@ function drawChart() {
     })
   }
 
-  g.selectAll('rect')
-    .on('pointerenter pointermove', (evt) => {
-      hoveredRect.value = evt.target.__data__
-      const b = (evt.target as HTMLElement).getBoundingClientRect()
+  g.selectAll<SVGRectElement, TimetableEntry>('rect')
+    .on('pointerenter pointermove', function (_event, entry) {
+      hoveredRect.value = entry
+      const b = this.getBoundingClientRect()
 
       tooltipPosition.value = { x: b.left + b.width + 5, y: b.top }
     })

@@ -16,9 +16,9 @@ mise run install
 mise run dev
 ```
 
-`mise.toml` pins Node 22 (matching the TypeScript configuration) and Bun 1.2
-(matching the release line used by the GitHub Pages workflow). Dependencies are
-installed from `bun.lock` without updating it.
+`mise.toml` pins Node 24 LTS and Bun 1.4. Dependencies are installed from
+`bun.lock` without updating it. TypeScript stays on 6.x for compatibility with
+Vue's type checker.
 
 Open the URL printed by Vite, normally <http://localhost:5173>. Drag a WorkLog CSV
 onto the page to view weekly activity. Use localhost or HTTPS: CSV persistence
@@ -42,8 +42,9 @@ mise run preview     # Serve dist/ locally, normally on port 4173
 mise run test        # Run the CSV parser regression tests with Vitest
 ```
 
-The repository uses Vitest with jsdom. Run `mise run test` separately from
-`mise run check` to check CSV parsing, including quoted and multiline fields.
+The parser tests use Vitest's Node environment, without a simulated browser.
+Run `mise run test` separately from `mise run check` to check CSV parsing,
+including quoted and multiline fields.
 
 Existing package scripts remain available through `mise exec -- bun run <script>`.
 `bun run lint` applies ESLint fixes, and `bun run format` rewrites source formatting.
