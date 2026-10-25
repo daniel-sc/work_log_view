@@ -10,7 +10,10 @@
     }"
   >
     <div style="font-weight: bold">Top Activities</div>
-    <div v-for="activity in hoveredRect.activities.slice(0, 2)">
+    <div
+      v-for="activity in hoveredRect.activities.slice(0, 2)"
+      :key="JSON.stringify([activity.app, activity.title])"
+    >
       <span style="font-weight: bolder">{{ formatSeconds(activity.durationSec) }}</span>
       <span style="margin-left: 0.3rem">{{ activity.title }}</span>
     </div>
